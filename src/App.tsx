@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { onAuthStateChanged, type User } from "firebase/auth";
 import { nanoid } from "nanoid";
 import {
   PanelLeftClose,
@@ -11,9 +10,6 @@ import {
   X,
 } from "lucide-react";
 import type { Novel, NovelsState, StructureType } from "./types";
-import { auth, isFirebaseConfigured } from "./firebase";
-import { AuthUI } from "./components";
-import { getUserNovels, saveNovel, saveActiveNovelId, getActiveNovelId, syncNovels } from "./services";
 
 const STORAGE_KEY = "novel-writer-v2";
 
@@ -39,16 +35,13 @@ function loadState(): NovelsState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return initialState();
-
     const parsed = JSON.parse(raw) as NovelsState;
     if (!Array.isArray(parsed.novels) || parsed.novels.length === 0) {
       return initialState();
     }
-
     const activeId = parsed.novels.some((n) => n.id === parsed.activeId)
       ? parsed.activeId
       : parsed.novels[0].id;
-
     return { novels: parsed.novels, activeId };
   } catch {
     return initialState();
@@ -94,8 +87,6 @@ const structures: Record<
 };
 
 function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
   const [state, setState] = useState<NovelsState>(loadState);
   const [sidebarOpen, setSidebarOpen] = useState(
     () => window.matchMedia("(min-width: 900px)").matches,
@@ -107,79 +98,14 @@ function App() {
   const [isComposing, setIsComposing] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
-  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 認証状態の監視
-  useEffect(() => {
-    if (!isFirebaseConfigured || !auth) {
-      setAuthLoading(false);
-      return;
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-
-      if (currentUser) {
-        try {
-          const novels = await getUserNovels(currentUser.uid);
-          if (novels.length > 0) {
-            const activeId = await getActiveNovelId(currentUser.uid);
-            setState({
-              novels,
-              activeId: activeId || novels[0].id,
-            });
-          } else {
-            const localState = loadState();
-            if (localState.novels.length > 0) {
-              await syncNovels(currentUser.uid, localState.novels);
-              await saveActiveNovelId(currentUser.uid, localState.activeId);
-            }
-            setState(localState);
-          }
-        } catch (error) {
-          console.error("Error loading data from Firestore:", error);
-          setState(loadState());
-        }
-      }
-
-      setAuthLoading(false);
-    });
-
-    return unsubscribe;
-  }, []);
-
-  // ローカルストレージに保存 & Firestoreに同期
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     } catch {
       // 保存できない環境でも執筆は継続させる
     }
-
-    if (user && state.novels.length > 0 && isFirebaseConfigured) {
-      if (syncTimeoutRef.current) {
-        clearTimeout(syncTimeoutRef.current);
-      }
-
-      syncTimeoutRef.current = setTimeout(async () => {
-        try {
-          const activeNovel = state.novels.find((n) => n.id === state.activeId);
-          if (activeNovel) {
-            await saveNovel(user.uid, activeNovel);
-            await saveActiveNovelId(user.uid, state.activeId);
-          }
-        } catch (error) {
-          console.error("Error syncing to Firestore:", error);
-        }
-      }, 3000);
-    }
-
-    return () => {
-      if (syncTimeoutRef.current) {
-        clearTimeout(syncTimeoutRef.current);
-      }
-    };
-  }, [state, user]);
+  }, [state]);
 
   useEffect(() => {
     const onPointer = (event: PointerEvent) => {
@@ -190,16 +116,13 @@ function App() {
       ) {
         setSettingsOpen(false);
       }
-
       if (!(event.target as HTMLElement).closest("[data-delete]")) {
         setDeleteConfirmId(null);
       }
     };
-
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setSettingsOpen(false);
     };
-
     window.addEventListener("pointerdown", onPointer);
     window.addEventListener("keydown", onKey);
     return () => {
@@ -286,52 +209,27 @@ function App() {
     ) {
       return;
     }
-
     const textarea = event.currentTarget;
     const position = textarea.selectionStart ?? 0;
     const charsPerColumn = Math.max(
       1,
       Math.floor(textarea.clientHeight / 18),
     );
-
     let next: number | null = null;
-
     if (event.key === "ArrowUp") next = position - 1;
     if (event.key === "ArrowDown") next = position + 1;
     if (event.key === "ArrowLeft") next = position + charsPerColumn;
     if (event.key === "ArrowRight") next = position - charsPerColumn;
     if (next === null) return;
-
     event.preventDefault();
-    const clamped = Math.min(
-      Math.max(next, 0),
-      textarea.value.length,
-    );
-
+    const clamped = Math.min(Math.max(next, 0), textarea.value.length);
     requestAnimationFrame(() => {
       textarea.setSelectionRange(clamped, clamped);
     });
   }
 
-  // ローディング画面
-  if (authLoading && isFirebaseConfigured) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-900">
-        <div className="text-white">読み込み中...</div>
-      </div>
-    );
-  }
-
-  // ログイン画面
-  if (isFirebaseConfigured && !user) {
-    return <AuthUI user={user} loading={authLoading} />;
-  }
-
-  // メインアプリ
   return (
     <div className="app-shell">
-      {user && <AuthUI user={user} loading={false} />}
-
       {sidebarOpen && (
         <button
           className="sidebar-backdrop"
@@ -407,7 +305,6 @@ function App() {
                       >
                         <Pencil size={15} />
                       </button>
-
                       <button
                         data-delete
                         disabled={state.novels.length <= 1}
@@ -520,13 +417,9 @@ function App() {
                     <label className="radio">
                       <input
                         type="radio"
-                        checked={
-                          activeNovel.structureType === "kishotenketsu"
-                        }
+                        checked={activeNovel.structureType === "kishotenketsu"}
                         onChange={() =>
-                          updateActive({
-                            structureType: "kishotenketsu",
-                          })
+                          updateActive({ structureType: "kishotenketsu" })
                         }
                       />
                       起承転結
@@ -534,13 +427,9 @@ function App() {
                     <label className="radio">
                       <input
                         type="radio"
-                        checked={
-                          activeNovel.structureType === "three-act"
-                        }
+                        checked={activeNovel.structureType === "three-act"}
                         onChange={() =>
-                          updateActive({
-                            structureType: "three-act",
-                          })
+                          updateActive({ structureType: "three-act" })
                         }
                       />
                       三幕構成
@@ -564,18 +453,13 @@ function App() {
               if (progress >= part.end) fill = 100;
               else if (progress > part.start) {
                 fill =
-                  ((progress - part.start) /
-                    (part.end - part.start)) *
-                  100;
+                  ((progress - part.start) / (part.end - part.start)) * 100;
               }
-
               return (
                 <div
                   key={part.label}
                   className="structure-part"
-                  style={{
-                    width: `${(part.end - part.start) * 100}%`,
-                  }}
+                  style={{ width: `${(part.end - part.start) * 100}%` }}
                 >
                   <div
                     className="structure-fill"
@@ -585,7 +469,6 @@ function App() {
                 </div>
               );
             })}
-
             <div
               className="indicator"
               style={{
