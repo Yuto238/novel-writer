@@ -237,18 +237,21 @@ input:focus-visible {
 
 .vertical-editor-container {
   height: 100%;
-  overflow-x: auto;
+  overflow-x: scroll;
   overflow-y: hidden;
   padding: 34px 44px max(30px, env(safe-area-inset-bottom));
   display: flex;
   align-items: flex-start;
   justify-content: flex-end;
+  scrollbar-gutter: stable;
   overscroll-behavior-x: contain;
 }
 
 .novel-editor {
   writing-mode: vertical-rl;
   text-orientation: mixed;
+  display: block;
+  flex: 0 0 auto;
   height: 100%;
   min-width: 100%;
   min-height: 280px;
