@@ -239,10 +239,11 @@ input:focus-visible {
   height: 100%;
   overflow-x: scroll;
   overflow-y: hidden;
+  direction: rtl;
   padding: 34px 44px max(30px, env(safe-area-inset-bottom));
   display: flex;
   align-items: flex-start;
-  justify-content: flex-end;
+  justify-content: flex-start;
   scrollbar-gutter: stable;
   overscroll-behavior-x: contain;
 }

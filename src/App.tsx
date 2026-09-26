@@ -97,6 +97,7 @@ function App() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isComposing, setIsComposing] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -106,6 +107,26 @@ function App() {
       // 保存できない環境でも執筆は継続させる
     }
   }, [state]);
+
+  useEffect(() => {
+    const container = editorContainerRef.current;
+    if (!container) return;
+
+    const onWheel = (event: WheelEvent) => {
+      if (container.scrollWidth <= container.clientWidth) return;
+      const delta =
+        Math.abs(event.deltaX) > Math.abs(event.deltaY)
+          ? event.deltaX
+          : event.deltaY;
+      if (delta === 0) return;
+
+      event.preventDefault();
+      container.scrollLeft -= delta;
+    };
+
+    container.addEventListener("wheel", onWheel, { passive: false });
+    return () => container.removeEventListener("wheel", onWheel);
+  }, []);
 
   useEffect(() => {
     const onPointer = (event: PointerEvent) => {
@@ -479,7 +500,7 @@ function App() {
         </section>
 
         <section className="editor-section">
-          <div className="vertical-editor-container">
+          <div ref={editorContainerRef} className="vertical-editor-container">
             <textarea
               ref={editorRef}
               className="novel-editor"
