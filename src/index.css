@@ -251,6 +251,7 @@ input:focus-visible {
 .novel-editor {
   writing-mode: vertical-rl;
   text-orientation: mixed;
+  direction: ltr;
   display: block;
   flex: 0 0 auto;
   height: 100%;
