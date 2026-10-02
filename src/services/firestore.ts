@@ -71,6 +71,8 @@ export async function saveNovel(userId: string, novel: Novel): Promise<void> {
       text: novel.text,
       totalPages: novel.totalPages,
       structureType: novel.structureType,
+      mode: novel.mode ?? "novel",
+      screenplay: novel.screenplay ?? null,
       createdAt: novel.createdAt,
       updatedAt: serverTimestamp(),
     };

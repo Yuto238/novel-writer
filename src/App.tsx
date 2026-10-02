@@ -5,11 +5,13 @@ import {
   PanelLeftOpen,
   Pencil,
   Plus,
+  Printer,
   Settings,
   Trash2,
   X,
 } from "lucide-react";
 import type { Novel, NovelsState, StructureType } from "./types";
+import ScreenplayWorkspace, { createScreenplayProject } from "./components/ScreenplayWorkspace";
 
 const STORAGE_KEY = "novel-writer-v2";
 
@@ -50,6 +52,25 @@ function loadState(): NovelsState {
 
 function countCharacters(text: string) {
   return text.replace(/\r?\n/g, "").length;
+}
+
+function splitIntoManuscriptPages(text: string) {
+  const pages: string[] = [];
+  let page = "";
+  let count = 0;
+
+  for (const character of text) {
+    page += character;
+    if (character !== "\n" && character !== "\r") count += character.length;
+    if (count === 400) {
+      pages.push(page);
+      page = "";
+      count = 0;
+    }
+  }
+
+  if (page || pages.length === 0) pages.push(page);
+  return pages;
 }
 
 function pagesFromText(text: string) {
@@ -218,6 +239,14 @@ function App() {
     });
   }
 
+  function printAsPdf() {
+    if (!activeNovel.text.trim()) {
+      window.alert("PDFにする本文がありません。");
+      return;
+    }
+    window.print();
+  }
+
   function handleIOSArrow(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (
       !isIOSDevice() ||
@@ -247,6 +276,16 @@ function App() {
     requestAnimationFrame(() => {
       textarea.setSelectionRange(clamped, clamped);
     });
+  }
+
+  if (activeNovel.mode === "screenplay") {
+    return (
+      <ScreenplayWorkspace
+        novel={activeNovel}
+        onUpdate={updateActive}
+        onSwitchToNovel={() => updateActive({ mode: "novel" })}
+      />
+    );
   }
 
   return (
@@ -386,6 +425,10 @@ function App() {
           </div>
 
           <div className="header-tools">
+            <div className="mode-switch-group" aria-label="制作モード">
+              <button className="active" aria-current="page">小説</button>
+              <button onClick={() => updateActive({ mode: "screenplay", screenplay: activeNovel.screenplay ?? createScreenplayProject() })}>脚本</button>
+            </div>
             <p className="counter">
               <strong>{currentPages.toFixed(1)}枚</strong>
               <span>/ {activeNovel.totalPages}枚</span>
@@ -393,6 +436,16 @@ function App() {
                 {characterCount.toLocaleString("ja-JP")}字
               </span>
             </p>
+
+            <button
+              className="pdf-button"
+              onClick={printAsPdf}
+              aria-label="400字詰めでPDF化"
+              title="400字詰めでPDF化"
+            >
+              <Printer size={17} />
+              <span>PDF化</span>
+            </button>
 
             <div className="settings-wrap" ref={settingsRef}>
               <button
@@ -516,6 +569,16 @@ function App() {
           </div>
         </section>
       </main>
+
+      <div className="print-document" aria-hidden="true">
+        {splitIntoManuscriptPages(activeNovel.text).map((page, index) => (
+          <section className="print-page" key={index}>
+            {index === 0 && <h1 className="print-title">{activeNovel.title}</h1>}
+            <div className="print-page-content">{page}</div>
+            <footer>{index + 1}</footer>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }
