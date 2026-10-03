@@ -120,3 +120,4 @@ export interface User {
   displayName: string;
   createdAt: number;
 }
+export * from "./storyDnaTypes";

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { nanoid } from "nanoid";
 import {
   BookOpen, Check, ChevronDown, Clock3, Copy, FileText,
-  Film, Flag, Focus, GripVertical, Lightbulb, MessageSquare, Plus, Printer,
+  Dna, Film, Flag, Focus, GripVertical, Lightbulb, MessageSquare, Plus, Printer,
   Pencil, Search, Settings2, Trash2, Users, X,
 } from "lucide-react";
 import type {
@@ -10,6 +10,8 @@ import type {
   ScreenplayProject, ScreenplayScene, ScreenplayTemplate, ScriptElement,
   ScriptElementType,
 } from "../types";
+
+import StoryDnaWorkspace from "./storydna/StoryDnaWorkspace";
 
 interface ScreenplayWorkspaceProps {
   novel: Novel;
@@ -38,7 +40,7 @@ const viewTabs = [
   { id: "analysis", label: "分析", icon: Film },
 ] as const;
 type ViewTab = (typeof viewTabs)[number]["id"];
-type ProjectSection = "script" | "characters" | "stage" | "foreshadowing" | "materials";
+type ProjectSection = "script" | "characters" | "stage" | "foreshadowing" | "materials" | "storydna";
 const colorOptions = ["#c66a5b", "#6889a8", "#d4ad51", "#6d9474", "#8c78a6", "#c18453"];
 const elementLabels: Record<ScriptElementType, string> = {
   heading: "Scene Heading", action: "Action", character: "Character",
@@ -275,6 +277,7 @@ export default function ScreenplayWorkspace({ novel, onUpdate, onSwitchToNovel }
   const sidebarNav: { id: ProjectSection; label: string; icon: typeof FileText }[] = [
     { id: "script", label: "脚本", icon: FileText }, { id: "characters", label: "登場人物", icon: Users },
     { id: "stage", label: "舞台設定", icon: BookOpen }, { id: "foreshadowing", label: "伏線", icon: Lightbulb }, { id: "materials", label: "資料", icon: Flag },
+    { id: "storydna", label: "換骨奪胎", icon: Dna },
   ];
   const sceneJump = (id: string) => { setSelectedSceneId(id); setSection("script"); setView("cards"); };
   const savePageSetting = (updates: Partial<ScreenplayPageSettings>) => commit({ ...project, pageSettings: { ...project.pageSettings, ...updates } });
@@ -317,6 +320,7 @@ export default function ScreenplayWorkspace({ novel, onUpdate, onSwitchToNovel }
         </div>}
         <div className={`screenplay-work-area ${focused ? "focused-area" : ""}`}>
           <section className="screenplay-content">
+            {section === "storydna" && <StoryDnaWorkspace novelId={novel.id} novelTitle={novel.title} project={project} onCommit={(next) => commit(next)} onOpenScene={sceneJump} />}
             {section === "script" && view === "cards" && <>
               <div className="board-toolbar">
                 <div className="board-intro"><div className="eyebrow">STORY BOARD <span>·</span> {templateNames[project.structureTemplate]}</div><h2>物語を、並べて考える。</h2><p>カードをドラッグして順番を入れ替え、シーンの流れを組み立てます。</p></div>
